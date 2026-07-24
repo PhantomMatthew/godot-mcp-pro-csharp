@@ -35,5 +35,15 @@ public static class CommandModuleFactory
         yield return new AudioCommands();
         yield return new ExportCommands();
         yield return new AndroidCommands();
+        yield return new EditorExtensionCommands();
+        yield return new TranslationCommands();
+        yield return new ImportCommands();
+        yield return new JointCommands();
+        yield return new CurveCommands();
+        yield return new SkeletonCommands();
+        yield return new DiffCommands();
+        yield return new UidCommands();
+        yield return new MiscCommands();
+        yield return new VisualShaderCommands();
     }
 }
