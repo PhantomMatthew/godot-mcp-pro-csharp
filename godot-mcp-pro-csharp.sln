@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodotMcpProCSharp", "GodotMcpProCSharp.csproj", "{021FB6DE-F90C-063E-4C11-0DF74899FD3D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "McpStdioBridge", "bridge\McpStdioBridge.csproj", "{9EAF45D7-5CF1-ABF4-F937-E6C117D93548}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{021FB6DE-F90C-063E-4C11-0DF74899FD3D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{021FB6DE-F90C-063E-4C11-0DF74899FD3D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{021FB6DE-F90C-063E-4C11-0DF74899FD3D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{021FB6DE-F90C-063E-4C11-0DF74899FD3D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9EAF45D7-5CF1-ABF4-F937-E6C117D93548}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9EAF45D7-5CF1-ABF4-F937-E6C117D93548}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9EAF45D7-5CF1-ABF4-F937-E6C117D93548}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9EAF45D7-5CF1-ABF4-F937-E6C117D93548}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4FE52C10-7766-4548-BC92-26E82176CF7E}
+	EndGlobalSection
+EndGlobal

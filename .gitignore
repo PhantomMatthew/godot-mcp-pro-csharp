@@ -1,0 +1,27 @@
+# Godot
+.godot/
+*.translation
+export_presets.cfg
+
+# .NET
+.mono/
+bin/
+obj/
+*.user
+mono_crash.*.json
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vs/
+.vscode/
+
+# OpenCode / agent tooling
+.omo/
+.agents/
+skills-lock.json
+
+# Local MCP config (use .mcp.json.example as template)
+.mcp.json
