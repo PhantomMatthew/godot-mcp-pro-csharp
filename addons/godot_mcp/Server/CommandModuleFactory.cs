@@ -45,5 +45,12 @@ public static class CommandModuleFactory
         yield return new UidCommands();
         yield return new MiscCommands();
         yield return new VisualShaderCommands();
+        yield return new Geometry3DCommands();
+        yield return new Rendering3DCommands();
+        yield return new Light2DCommands();
+        yield return new EditorAdvancedCommands();
+        yield return new NetworkCommands();
+        yield return new AdvancedNodesCommands();
+        yield return new UtilityCommands();
     }
 }
