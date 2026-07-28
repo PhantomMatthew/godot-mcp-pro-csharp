@@ -91,7 +91,23 @@ public static class Schema
     public static Dictionary Obj(string description) =>
         new() { ["type"] = "object", ["description"] = description };
 
-    /// <summary>Value of any JSON type (string/number/bool/object/array) — used for smart-parsed values.</summary>
+    /// <summary>Value of any JSON type (string/number/bool/object/array) — used for smart-parsed values.
+    /// NOTE: omitting "type" makes strict MCP clients serialize object values to a JSON string.
+    /// Prefer <see cref="Vec3"/>/<see cref="Obj"/> for structured params.</summary>
     public static Dictionary Any(string description) =>
         new() { ["description"] = description };
+
+    /// <summary>Vector3 parameter declared as a {x,y,z} object so strict MCP clients pass an
+    /// object (not a stringified dict). The server still accepts a "Vector3(x,y,z)" string too.</summary>
+    public static Dictionary Vec3(string description) => new()
+    {
+        ["type"] = "object",
+        ["description"] = description,
+        ["properties"] = new Dictionary
+        {
+            ["x"] = new Dictionary { ["type"] = "number" },
+            ["y"] = new Dictionary { ["type"] = "number" },
+            ["z"] = new Dictionary { ["type"] = "number" },
+        },
+    };
 }

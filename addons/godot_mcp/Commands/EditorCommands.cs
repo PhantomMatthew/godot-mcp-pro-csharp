@@ -752,29 +752,81 @@ public partial class EditorCommands : BaseCommand
             return ErrorNotFound($"Node '{nodePath}'");
 
         var signals = new Godot.Collections.Array();
-        foreach (Dictionary sig in node.GetSignalList())
+        foreach (Variant sigVar in node.GetSignalList())
         {
+            // Each entry is normally a Dictionary, but guard against malformed entries
+            // (a non-dict Variant previously caused a NullReferenceException on Label nodes).
+            var sig = sigVar.VariantType == Variant.Type.Dictionary
+                ? sigVar.AsGodotDictionary()
+                : new Dictionary();
+
             var args = new Godot.Collections.Array();
-            foreach (Dictionary arg in sig["args"].AsGodotArray())
-                args.Add(new Dictionary { ["name"] = arg["name"], ["type"] = arg["type"] });
+            if (sig.TryGetValue("args", out var argsVar) && argsVar.VariantType == Variant.Type.Array)
+            {
+                foreach (Variant aVar in argsVar.AsGodotArray())
+                {
+                    var arg = aVar.VariantType == Variant.Type.Dictionary
+                        ? aVar.AsGodotDictionary()
+                        : new Dictionary();
+                    args.Add(new Dictionary
+                    {
+                        ["name"] = arg.TryGetValue("name", out var an) ? an : "",
+                        ["type"] = arg.TryGetValue("type", out var at) ? at : "",
+                    });
+                }
+            }
+
+            StringName sigName;
+            if (sig.TryGetValue("name", out var sn) && sn.VariantType == Variant.Type.StringName)
+                sigName = sn.AsStringName();
+            else if (sig.TryGetValue("name", out var snStr))
+                sigName = new StringName(snStr.AsString());
+            else
+                sigName = new StringName("");
 
             var connections = new Godot.Collections.Array();
-            foreach (Dictionary conn in node.GetSignalConnectionList(sig["name"].AsStringName()))
+            foreach (Variant cVar in node.GetSignalConnectionList(sigName))
             {
-                var callable = conn["callable"].AsCallable();
-                var targetStr = callable.Target is Node targetNode
-                    ? root.GetPathTo(targetNode).ToString()
-                    : callable.Target?.ToString() ?? "";
-                connections.Add(new Dictionary
+                // Per-connection try/catch: editor-internal connections can reference freed
+                // nodes or a null/default method StringName, which previously threw NRE here
+                // on Control nodes (e.g. Label).
+                try
                 {
-                    ["target"] = targetStr,
-                    ["method"] = callable.Method.ToString(),
-                });
+                    if (cVar.VariantType != Variant.Type.Dictionary) continue;
+                    var conn = cVar.AsGodotDictionary();
+                    if (!conn.TryGetValue("callable", out var callableVar)
+                        || callableVar.VariantType != Variant.Type.Callable)
+                        continue;
+                    var callable = callableVar.AsCallable();
+
+                    string targetStr;
+                    var tgt = callable.Target;
+                    if (tgt is Node tn && GodotObject.IsInstanceValid(tn))
+                        targetStr = tn.IsInsideTree() ? root.GetPathTo(tn).ToString() : tn.GetPath().ToString();
+                    else if (tgt is GodotObject go && GodotObject.IsInstanceValid(go))
+                        targetStr = go.ToString() ?? "";
+                    else
+                        targetStr = "";
+
+                    string methodStr;
+                    try { methodStr = callable.Method.ToString() ?? ""; }
+                    catch { methodStr = ""; }
+
+                    connections.Add(new Dictionary
+                    {
+                        ["target"] = targetStr,
+                        ["method"] = methodStr,
+                    });
+                }
+                catch
+                {
+                    // Skip malformed or unreadable connection entries.
+                }
             }
 
             signals.Add(new Dictionary
             {
-                ["name"] = sig["name"],
+                ["name"] = sig.TryGetValue("name", out var nameVar) ? nameVar : "",
                 ["args"] = args,
                 ["connections"] = connections,
             });
@@ -929,35 +981,77 @@ public partial class EditorCommands : BaseCommand
         if (cam == null)
             return ErrorNoEditorCamera();
 
+        // Snapshot current state so the change participates in the editor's undo history
+        // (editor_undo / editor_redo operate on this same UndoRedo stack).
+        var oldPos = cam.GlobalPosition;
+        var oldRot = cam.RotationDegrees;
+        var oldFov = cam.Fov;
+
+        var newPos = oldPos;
+        var newRot = oldRot;
+
         if (@params.ContainsKey("position"))
         {
             var p = OptionalDict(@params, "position") ?? new Dictionary();
-            cam.GlobalPosition = new Vector3(
-                (float)GetNum(p, "x", cam.GlobalPosition.X),
-                (float)GetNum(p, "y", cam.GlobalPosition.Y),
-                (float)GetNum(p, "z", cam.GlobalPosition.Z));
+            newPos = new Vector3(
+                (float)GetNum(p, "x", oldPos.X),
+                (float)GetNum(p, "y", oldPos.Y),
+                (float)GetNum(p, "z", oldPos.Z));
         }
 
         if (@params.ContainsKey("rotation_degrees"))
         {
             var r = OptionalDict(@params, "rotation_degrees") ?? new Dictionary();
-            cam.RotationDegrees = new Vector3(
-                (float)GetNum(r, "x", cam.RotationDegrees.X),
-                (float)GetNum(r, "y", cam.RotationDegrees.Y),
-                (float)GetNum(r, "z", cam.RotationDegrees.Z));
+            newRot = new Vector3(
+                (float)GetNum(r, "x", oldRot.X),
+                (float)GetNum(r, "y", oldRot.Y),
+                (float)GetNum(r, "z", oldRot.Z));
         }
 
         if (@params.ContainsKey("look_at"))
         {
             var t = OptionalDict(@params, "look_at") ?? new Dictionary();
-            cam.LookAt(new Vector3(
+            var target = new Vector3(
                 (float)GetNum(t, "x", 0),
                 (float)GetNum(t, "y", 0),
-                (float)GetNum(t, "z", 0)));
+                (float)GetNum(t, "z", 0));
+            // Fold look_at into a plain rotation_degrees change so the whole edit is a
+            // single undoable property change (a method call would not undo cleanly).
+            var dir = target - newPos;
+            if (dir != Vector3.Zero)
+            {
+                var euler = Basis.LookingAt(dir, Vector3.Up).GetEuler();
+                newRot = new Vector3(
+                    Mathf.RadToDeg(euler.X), Mathf.RadToDeg(euler.Y), Mathf.RadToDeg(euler.Z));
+            }
         }
 
-        if (@params.ContainsKey("fov"))
-            cam.Fov = (float)OptionalFloat(@params, "fov", cam.Fov);
+        var newFov = @params.ContainsKey("fov")
+            ? (float)OptionalFloat(@params, "fov", oldFov)
+            : oldFov;
+
+        // Commit through the EditorUndoRedoManager itself: create_action/add_do_property/
+        // commit_action exist on the manager and auto-route to the appropriate history,
+        // creating it lazily (a free-standing viewport camera lands in the global history).
+        // editor_undo reads that same global history to reverse the change.
+        var mgr = EditorInterface.Singleton.GetEditorUndoRedo();
+        if (mgr == null)
+            return Error(CodeInternal, "Editor UndoRedo manager is not available.");
+        mgr.CreateAction("Set editor camera");
+        mgr.AddDoProperty(cam, "global_position", newPos);
+        mgr.AddUndoProperty(cam, "global_position", oldPos);
+        mgr.AddDoProperty(cam, "rotation_degrees", newRot);
+        mgr.AddUndoProperty(cam, "rotation_degrees", oldRot);
+        mgr.AddDoProperty(cam, "fov", newFov);
+        mgr.AddUndoProperty(cam, "fov", oldFov);
+        mgr.CommitAction();
+
+        // Record which UndoRedo history this action landed in, so editor_undo/redo (which
+        // operate on per-history UndoRedo, not the manager) reverse the camera change rather
+        // than reporting "Nothing to undo". Falls back to GLOBAL_HISTORY if the lookup is not
+        // bound in this Godot build; ResolveUndoHistory also scans candidates as a backstop.
+        if (mgr.HasMethod("get_object_history_id"))
+            EditorExtensionCommands.LastActionHistoryId = mgr.Call("get_object_history_id", cam).AsInt32();
 
         var pos = cam.GlobalPosition;
         var rot = cam.RotationDegrees;

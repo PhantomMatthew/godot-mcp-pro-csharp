@@ -3,7 +3,7 @@ using Godot;
 namespace GodotMcpPro.Runtime;
 
 /// <summary>
-/// Autoload injected by Godot MCP Pro plugin at runtime.
+/// Autoload injected by Godot MCP Pro CSharp plugin at runtime.
 /// Monitors for screenshot requests from the editor and captures the game viewport.
 /// Faithful port of addons/godot_mcp/mcp_screenshot_service.gd.
 /// </summary>

@@ -4,7 +4,7 @@ using Godot.Collections;
 namespace GodotMcpPro.Runtime;
 
 /// <summary>
-/// Autoload injected by Godot MCP Pro plugin at runtime.
+/// Autoload injected by Godot MCP Pro CSharp plugin at runtime.
 /// Monitors for input commands from the editor and dispatches them as Input events.
 /// Faithful port of addons/godot_mcp/mcp_input_service.gd.
 /// </summary>

@@ -4,7 +4,7 @@ using GodotMcpPro.Server;
 namespace GodotMcpPro;
 
 /// <summary>
-/// Godot MCP Pro (C#) — EditorPlugin entry point.
+/// Godot MCP Pro CSharp — EditorPlugin entry point.
 /// Hosts a self-contained MCP server (Streamable HTTP) inside the editor and
 /// injects the runtime autoload services used for live-game inspection.
 /// Port of addons/godot_mcp/plugin.gd.
@@ -51,11 +51,11 @@ public partial class GodotMcpPlugin : EditorPlugin
         InjectAutoloads();
 
         _statusPanel = new StatusPanel();
-        AddControlToBottomPanel(_statusPanel, "MCP Pro");
+        AddControlToBottomPanel(_statusPanel, "Godot MCP Pro CSharp");
         _statusPanel.Bind(this);
         _statusPanel.UpdateStatus(_httpServer.Port, _httpServer.IsRunning);
 
-        GD.Print($"[MCP] Godot MCP Pro (C#) v{McpProtocolHandler.ServerVersion} initialized on port {_httpServer.Port}");
+        GD.Print($"[MCP] Godot MCP Pro CSharp v{McpProtocolHandler.ServerVersion} initialized on port {_httpServer.Port}");
     }
 
     public override void _ExitTree()

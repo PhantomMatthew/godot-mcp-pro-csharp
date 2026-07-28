@@ -9,5 +9,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="bridge/**/*.cs" />
+    <!-- scene-test has its own McpTestScene.csproj and a separate physical copy of the addon;
+         compiling it here would duplicate every class definition. -->
+    <Compile Remove="scene-test/**/*.cs" />
   </ItemGroup>
 </Project>

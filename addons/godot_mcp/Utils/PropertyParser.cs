@@ -142,7 +142,14 @@ public static class PropertyParser
                 (float)GetNum(d, "x"),
                 (float)GetNum(d, "y"));
         }
-        var nums = ExtractNumbers(Stringify(value));
+        var s = Stringify(value);
+        if (s.Length > 0 && s[0] == '{')
+        {
+            var reparsed = Json.ParseString(s);
+            if (reparsed.VariantType == Variant.Type.Dictionary)
+                return ParseVector2(reparsed);
+        }
+        var nums = ExtractNumbers(s);
         if (nums.Length >= 2)
             return new Vector2((float)nums[0], (float)nums[1]);
         return Vector2.Zero;
@@ -166,7 +173,17 @@ public static class PropertyParser
                 (float)GetNum(d, "y"),
                 (float)GetNum(d, "z"));
         }
-        var nums = ExtractNumbers(Stringify(value));
+        // Some MCP clients serialize a {x,y,z} object to a JSON string when the schema
+        // omits "type". Re-parse such strings back to a dict before falling back to
+        // ExtractNumbers (which throws FormatException on "{").
+        var s = Stringify(value);
+        if (s.Length > 0 && s[0] == '{')
+        {
+            var reparsed = Json.ParseString(s);
+            if (reparsed.VariantType == Variant.Type.Dictionary)
+                return ParseVector3(reparsed);
+        }
+        var nums = ExtractNumbers(s);
         if (nums.Length >= 3)
             return new Vector3((float)nums[0], (float)nums[1], (float)nums[2]);
         return Vector3.Zero;
@@ -198,6 +215,13 @@ public static class PropertyParser
     {
         if (value.VariantType == Variant.Type.Color) return value.AsColor();
         var s = Stringify(value);
+        // Tolerate stringified {r,g,b,a} dicts from strict clients.
+        if (s.Length > 0 && s[0] == '{')
+        {
+            var reparsed = Json.ParseString(s);
+            if (reparsed.VariantType == Variant.Type.Dictionary)
+                return ParseColor(reparsed);
+        }
         if (s.StartsWith("#"))
             return Color.FromHtml(s);
         if (s.StartsWith("Color("))

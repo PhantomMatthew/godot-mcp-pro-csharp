@@ -1,4 +1,4 @@
-# Quick Start — Godot MCP Pro (C#)
+# Quick Start — Godot MCP Pro CSharp
 
 5-minute guide from zero to first AI-driven Godot edit.
 
@@ -17,9 +17,9 @@ cp -r /path/to/godot-mcp-pro-csharp/addons/godot_mcp addons/
 
 Open the project in Godot (mono). The C# project compiles on first load.
 
-Go to **Project → Project Settings → Plugins** and enable **Godot MCP Pro (C#)**.
+Go to **Project → Project Settings → Plugins** and enable **Godot MCP Pro CSharp**.
 
-A **"MCP Pro"** tab appears at the editor bottom panel. It should show `● connected` with a port number (68001–68005).
+A **"MCP Pro"** tab appears at the editor bottom panel. It should show `● connected` with a port number (65001–65005).
 
 ## Step 2: Build the stdio bridge (if using Claude Code / Cline)
 
@@ -50,7 +50,7 @@ Optional: Copy `settings.local.json` to `~/.claude/settings.local.json` for auto
 
 ### Cursor / Windsurf (HTTP)
 
-Point your client at `http://127.0.0.1:68001/mcp`.
+Point your client at `http://127.0.0.1:65001/mcp`.
 
 ## Step 4: Test
 

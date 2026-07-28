@@ -11,12 +11,12 @@ namespace GodotMcpPro.Bridge;
 /// stdio transport spec).
 ///
 /// Usage:
- ///   godot-mcp-bridge [--port 68001] [--url http://127.0.0.1:68001/mcp]
- /// Port resolution order: --url > --port > GODOT_MCP_HTTP_PORT env > scan 68001-68005.
+ ///   godot-mcp-bridge [--port 65001] [--url http://127.0.0.1:65001/mcp]
+ /// Port resolution order: --url > --port > GODOT_MCP_HTTP_PORT env > scan 65001-65005.
 /// </summary>
 internal static class Program
 {
-    private const int DefaultBasePort = 68001;
+    private const int DefaultBasePort = 65001;
     private const int PortScanRange = 5;
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(120) };
@@ -41,7 +41,7 @@ internal static class Program
             {
                 await writer.WriteLineAsync(ErrorResponse(line,
                     "Godot editor MCP server not reachable. Open your project in Godot with the "
-                    + "Godot MCP Pro (C#) plugin enabled, or pass --url/--port explicitly."));
+                    + "Godot MCP Pro CSharp plugin enabled, or pass --url/--port explicitly."));
                 continue;
             }
 

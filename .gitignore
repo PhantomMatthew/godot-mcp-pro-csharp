@@ -25,3 +25,6 @@ skills-lock.json
 
 # Local MCP config (use .mcp.json.example as template)
 .mcp.json
+
+# Local test sandbox (duplicate addon copy for runtime testing)
+scene-test/

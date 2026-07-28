@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
+using System.Threading;
 using Godot;
 
 namespace GodotMcpPro.Server;
@@ -8,7 +9,7 @@ namespace GodotMcpPro.Server;
 /// <summary>
 /// MCP Streamable HTTP transport hosted inside the Godot editor.
 ///
- /// Endpoint: POST http://127.0.0.1:{port}/mcp  (default port 68001, scans up to 68005)
+ /// Endpoint: POST http://127.0.0.1:{port}/mcp  (default port 65001, scans up to 65005)
 ///
 /// Threading model: HTTP accept/read runs on background threads, but ALL MCP
 /// handling (JSON parsing, tool execution, Godot API access) is marshaled to
@@ -17,7 +18,7 @@ namespace GodotMcpPro.Server;
 /// </summary>
 public sealed class StreamableHttpServer : IDisposable
 {
-    public const int DefaultBasePort = 68001;
+    public const int DefaultBasePort = 65001;
     public const int PortScanRange = 5;
     private const string PortFilePath = "user://mcp_http_port";
 

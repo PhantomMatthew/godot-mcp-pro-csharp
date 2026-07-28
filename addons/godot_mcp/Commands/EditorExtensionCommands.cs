@@ -118,27 +118,58 @@ public partial class EditorExtensionCommands : BaseCommand
 
     // ── Undo / Redo ───────────────────────────────────────────────────────────
 
+    // EditorInterface.GetEditorUndoRedo() returns an EditorUndoRedoManager. Its top-level
+    // has_undo/undo/redo exist in C++ but are NOT bound to scripting, so calling them from C#
+    // fails ("Nonexistent function 'has_undo' in base 'Godot.EditorUndoRedoManager'"), which
+    // made editor_undo always report "Nothing to undo". Operate instead on the per-history
+    // UndoRedo obtained via GetHistoryUndoRedo(id).
+    //
+    // An action committed via the manager lands in a history chosen by the affected object:
+    // GLOBAL_HISTORY (0) for free-standing objects like the viewport camera, or a scene's
+    // positive history id for nodes in the edited scene. SetEditorCamera records the id it
+    // landed in (via get_object_history_id) into LastActionHistoryId; editor_undo/redo read
+    // it. ResolveUndoHistory falls back to scanning known histories if it has nothing.
+    private const int EditorGlobalHistoryId = 0; // EditorUndoRedoManager.GLOBAL_HISTORY
+    private static readonly int[] CandidateHistoryIds =
+        { 0, -9, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+    // Set by SetEditorCamera after it commits; read by EditorUndo/EditorRedo.
+    public static int LastActionHistoryId { get; set; } = EditorGlobalHistoryId;
+
+    private delegate bool UndoRedoQualifies(UndoRedo ur);
+
+    private static UndoRedo? ResolveUndoHistory(int preferredId, UndoRedoQualifies qualifies)
+    {
+        var mgr = EditorInterface.Singleton.GetEditorUndoRedo();
+        if (mgr == null) return null;
+
+        var preferred = mgr.GetHistoryUndoRedo(preferredId);
+        if (preferred != null && qualifies(preferred)) return preferred;
+
+        foreach (var id in CandidateHistoryIds)
+        {
+            if (id == preferredId) continue;
+            var ur = mgr.GetHistoryUndoRedo(id);
+            if (ur != null && qualifies(ur)) return ur;
+        }
+        return null;
+    }
+
     private static Dictionary EditorUndo(Dictionary _)
     {
-        var undoRedo = EditorInterface.Singleton.GetEditorUndoRedo();
+        var undoRedo = ResolveUndoHistory(LastActionHistoryId, ur => ur.HasUndo());
         if (undoRedo == null)
-            return Error(CodeInternal, "Editor UndoRedo manager is not available.");
-        var hasUndo = (bool)undoRedo.Call("has_undo");
-        if (!hasUndo)
             return Success(new Dictionary { ["undone"] = false, ["message"] = "Nothing to undo." });
-        undoRedo.Call("undo");
+        undoRedo.Undo();
         return Success(new Dictionary { ["undone"] = true });
     }
 
     private static Dictionary EditorRedo(Dictionary _)
     {
-        var undoRedo = EditorInterface.Singleton.GetEditorUndoRedo();
+        var undoRedo = ResolveUndoHistory(LastActionHistoryId, ur => ur.HasRedo());
         if (undoRedo == null)
-            return Error(CodeInternal, "Editor UndoRedo manager is not available.");
-        var hasRedo = (bool)undoRedo.Call("has_redo");
-        if (!hasRedo)
             return Success(new Dictionary { ["redone"] = false, ["message"] = "Nothing to redo." });
-        undoRedo.Call("redo");
+        undoRedo.Redo();
         return Success(new Dictionary { ["redone"] = true });
     }
 
@@ -169,19 +200,40 @@ public partial class EditorExtensionCommands : BaseCommand
 
     // ── Breakpoints ───────────────────────────────────────────────────────────
 
-    private static Node? FindDebugger()
+    // The only breakpoint store ScriptEditor.get_breakpoints() reads is each OPEN script tab's
+    // CodeEdit gutter. ScriptEditorDebugger.set_breakpoint only feeds the running game, and the
+    // breakpoint_set_in_tree signal drives the live scene-tree debugger — neither reaches the
+    // store GetBreakpoints() reads (verified on Godot 4.7). So set/clear open the script and
+    // toggle its CodeEdit's breakpoint line directly via the bound set_line_as_breakpoint.
+    private static CodeEdit? OpenScriptCodeEdit(string path, out Dictionary? error)
     {
-        var baseControl = EditorInterface.Singleton.GetBaseControl();
-        if (baseControl == null) return null;
-        var queue = new Queue<Node>();
-        queue.Enqueue(baseControl);
-        while (queue.Count > 0)
+        error = null;
+        var script = ResourceLoader.Load<Script>(path);
+        if (script == null)
         {
-            var node = queue.Dequeue();
-            if (node.GetClass() == "ScriptEditorDebugger")
-                return node;
-            foreach (var child in node.GetChildren())
-                queue.Enqueue(child);
+            error = ErrorInvalidParams(
+                $"Could not load script at '{path}'. The file must exist and be a valid script (e.g. .gd).");
+            return null;
+        }
+        // Open/focus the script tab (creates its ScriptTextEditor + CodeEdit). Idempotent.
+        EditorInterface.Singleton.Call("edit_resource", script);
+        return FindCodeEditForScript(path);
+    }
+
+    private static CodeEdit? FindCodeEditForScript(string path)
+    {
+        var se = EditorInterface.Singleton.GetScriptEditor();
+        // get_open_scripts and get_open_script_editors are parallel by index.
+        var openScripts = se.Call("get_open_scripts").AsGodotArray();
+        var openEditors = se.Call("get_open_script_editors").AsGodotArray();
+        for (var i = 0; i < openScripts.Count && i < openEditors.Count; i++)
+        {
+            if (openScripts[i].As<Script>() is not { ResourcePath: var rp } || rp != path) continue;
+            if (openEditors[i].As<Node>() is not { } tab) continue;
+            foreach (var m in tab.FindChildren("*", "CodeEdit", true, false))
+            {
+                if (m is CodeEdit ce) return ce;
+            }
         }
         return null;
     }
@@ -195,12 +247,13 @@ public partial class EditorExtensionCommands : BaseCommand
             return ErrorInvalidParams("line must be a positive integer");
         var enabled = OptionalBool(@params, "enabled", true);
 
-        var dbg = FindDebugger();
-        if (dbg == null)
-            return ErrorInternal("Script editor debugger not found. Open a script in the editor first.");
-
         var normalizedPath = NormalizeProjectPath(scriptPath);
-        dbg.Call("set_breakpoint", normalizedPath, line, enabled);
+        var ce = OpenScriptCodeEdit(normalizedPath, out var err);
+        if (ce == null)
+            return err ?? ErrorInternal($"Could not access CodeEdit for '{normalizedPath}'.");
+
+        // CodeEdit breakpoints are 0-based; GetBreakpoints() reports them 1-based.
+        ce.Call("set_line_as_breakpoint", line - 1, enabled);
 
         return Success(new Dictionary
         {
@@ -210,29 +263,26 @@ public partial class EditorExtensionCommands : BaseCommand
         });
     }
 
+    // ScriptEditor.GetBreakpoints() returns string[] of "res://script.gd:<line>" (1-based).
+    private static System.Collections.Generic.List<(string path, int line)> ReadBreakpoints()
+    {
+        var result = new System.Collections.Generic.List<(string, int)>();
+        foreach (var entry in EditorInterface.Singleton.GetScriptEditor().GetBreakpoints())
+        {
+            var colon = entry.RFind(":");
+            if (colon < 0) continue;
+            var lineStr = entry.Substr(colon + 1, entry.Length - colon - 1);
+            if (!lineStr.IsValidInt()) continue;
+            result.Add((entry.Substr(0, colon), lineStr.ToInt()));
+        }
+        return result;
+    }
+
     private Dictionary GetBreakpoints(Dictionary _)
     {
-        var dbg = FindDebugger();
-        if (dbg == null)
-            return Success(new Dictionary { ["breakpoints"] = new Godot.Collections.Array(), ["count"] = 0 });
-
-        var rawBreakpoints = dbg.Call("get_breakpoints");
         var breakpoints = new Godot.Collections.Array();
-
-        if (rawBreakpoints.VariantType == Variant.Type.Dictionary)
-        {
-            var bpDict = rawBreakpoints.AsGodotDictionary();
-            foreach (var key in bpDict.Keys)
-            {
-                var path = key.AsString();
-                var linesVar = bpDict[key];
-                if (linesVar.VariantType == Variant.Type.Array)
-                {
-                    foreach (var lineVar in linesVar.AsGodotArray())
-                        breakpoints.Add(new Dictionary { ["script_path"] = path, ["line"] = lineVar.AsInt32() });
-                }
-            }
-        }
+        foreach (var (path, line) in ReadBreakpoints())
+            breakpoints.Add(new Dictionary { ["script_path"] = path, ["line"] = line });
 
         return Success(new Dictionary
         {
@@ -243,29 +293,15 @@ public partial class EditorExtensionCommands : BaseCommand
 
     private Dictionary ClearBreakpoints(Dictionary _)
     {
-        var dbg = FindDebugger();
-        if (dbg == null)
-            return Success(new Dictionary { ["cleared"] = true, ["count"] = 0 });
-
-        var rawBreakpoints = dbg.Call("get_breakpoints");
+        // Clear each existing breakpoint on its own CodeEdit so the change is visible to
+        // GetBreakpoints() (same store SetBreakpoint writes).
         var count = 0;
-
-        if (rawBreakpoints.VariantType == Variant.Type.Dictionary)
+        foreach (var (path, line) in ReadBreakpoints())
         {
-            var bpDict = rawBreakpoints.AsGodotDictionary();
-            foreach (var key in bpDict.Keys)
-            {
-                var path = key.AsString();
-                var linesVar = bpDict[key];
-                if (linesVar.VariantType == Variant.Type.Array)
-                {
-                    foreach (var lineVar in linesVar.AsGodotArray())
-                    {
-                        dbg.Call("set_breakpoint", path, lineVar.AsInt32(), false);
-                        count++;
-                    }
-                }
-            }
+            var ce = OpenScriptCodeEdit(path, out _);
+            if (ce != null)
+                ce.Call("set_line_as_breakpoint", line - 1, false);
+            count++;
         }
 
         return Success(new Dictionary { ["cleared"] = true, ["count"] = count });

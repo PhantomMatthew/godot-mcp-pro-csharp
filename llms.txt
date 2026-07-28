@@ -1,4 +1,4 @@
-# Godot MCP Pro (C#) — LLM Reference
+# Godot MCP Pro CSharp — LLM Reference
 
 > MCP server running inside the Godot 4 editor. 174 tools across 26 categories.
 > No Node.js required. Self-contained C# with Streamable HTTP + stdio bridge.
@@ -6,7 +6,7 @@
 ## Architecture
 
 ```
-AI Assistant ──stdio──> Bridge (C# console) ──HTTP:68001──> Godot Editor Plugin
+AI Assistant ──stdio──> Bridge (C# console) ──HTTP:65001──> Godot Editor Plugin
 AI Assistant ──HTTP──> Godot Editor Plugin (direct)
 Editor Plugin ──file IPC──> Running Game (3 autoload services)
 ```

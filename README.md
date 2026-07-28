@@ -1,4 +1,4 @@
-# Godot MCP Pro (C#)
+# Godot MCP Pro CSharp
 
 Self-contained MCP (Model Context Protocol) server for the Godot 4 editor, written in C#.
 
@@ -11,7 +11,7 @@ AI Assistant ──stdio──> Bridge Process ──HTTP──> Godot Editor Pl
 AI Assistant ──HTTP──> Godot Editor Plugin (C#)   (direct, no bridge needed)
 ```
 
-- **Streamable HTTP** transport built into the editor plugin (default port 68001–68005)
+- **Streamable HTTP** transport built into the editor plugin (default port 65001–65005)
 - **stdio bridge** for MCP clients that only speak stdio (`bridge/` console app)
 - **File-IPC** between editor and running game (3 autoload services)
 - **~174 tools** across 26 categories
@@ -27,7 +27,7 @@ AI Assistant ──HTTP──> Godot Editor Plugin (C#)   (direct, no bridge nee
 
 1. Copy `addons/godot_mcp/` into your project's `addons/` directory.
 2. Open the project in **Godot 4.4+ (.NET)**. The C# project builds automatically on first load.
-3. Enable **Godot MCP Pro (C#)** in Project Settings → Plugins.
+3. Enable **Godot MCP Pro CSharp** in Project Settings → Plugins.
 4. Check the editor bottom panel — a **"MCP Pro"** tab appears showing `● connected` and the HTTP port.
 
 ### 2. MCP Client Setup
@@ -47,7 +47,7 @@ Copy `.mcp.json.example` to your project root as `.mcp.json`, then edit the brid
     "godot-mcp-pro": {
       "command": "dotnet",
       "args": ["/absolute/path/to/bridge/bin/Release/net8.0/godot-mcp-bridge.dll"],
-      "env": { "GODOT_MCP_HTTP_PORT": "68001" }
+      "env": { "GODOT_MCP_HTTP_PORT": "65001" }
     }
   }
 }
@@ -55,7 +55,7 @@ Copy `.mcp.json.example` to your project root as `.mcp.json`, then edit the brid
 
 #### Option B: Direct HTTP (Cursor, Windsurf, custom clients)
 
-Point your MCP client at `http://127.0.0.1:68001/mcp`. The port auto-scans 68001–68005.
+Point your MCP client at `http://127.0.0.1:65001/mcp`. The port auto-scans 65001–65005.
 
 ### 3. Claude Code Permission Presets (optional)
 
@@ -68,14 +68,14 @@ After installation, verify the server is running:
 1. **Editor bottom panel**: Look for the "MCP Pro" tab. Status shows `● connected` with the port number.
 2. **curl test**:
    ```bash
-   curl -X POST http://127.0.0.1:68001/mcp \
+   curl -X POST http://127.0.0.1:65001/mcp \
      -H "Content-Type: application/json" \
      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
    ```
    Expected: JSON response with `serverInfo.name = "godot-mcp-pro-csharp"`.
 3. **List tools**:
    ```bash
-   curl -X POST http://127.0.0.1:68001/mcp \
+   curl -X POST http://127.0.0.1:65001/mcp \
      -H "Content-Type: application/json" \
      -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
    ```
@@ -96,7 +96,7 @@ Fix any compile errors, then restart Godot. Common issues:
 
 1. Verify the editor bottom panel shows `● connected`.
 2. Check the port file: `cat $(godot --editor --path . -e 2>/dev/null; echo)` or look for `user://mcp_http_port` in your project's user data dir.
-3. The bridge auto-discovers ports 68001–68005. If you changed the port, set `GODOT_MCP_HTTP_PORT`.
+3. The bridge auto-discovers ports 65001–65005. If you changed the port, set `GODOT_MCP_HTTP_PORT`.
 4. Firewall: the server binds `127.0.0.1` only — no external access.
 
 ### Runtime tools fail ("No scene is currently playing")
@@ -114,7 +114,7 @@ The game is likely paused on a runtime error. The plugin auto-presses the debugg
 ### Bridge process exits immediately
 
 ```bash
-dotnet /path/to/bridge/bin/Release/net8.0/godot-mcp-bridge.dll --url http://127.0.0.1:68001/mcp
+dotnet /path/to/bridge/bin/Release/net8.0/godot-mcp-bridge.dll --url http://127.0.0.1:65001/mcp
 ```
 Run manually to see stderr output. The bridge writes diagnostics to stderr only (stdout is reserved for protocol).
 
