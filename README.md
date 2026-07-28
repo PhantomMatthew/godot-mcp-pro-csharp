@@ -14,7 +14,7 @@ AI Assistant ──HTTP──> Godot Editor Plugin (C#)   (direct, no bridge nee
 - **Streamable HTTP** transport built into the editor plugin (default port 65001–65005)
 - **stdio bridge** for MCP clients that only speak stdio (`bridge/` console app)
 - **File-IPC** between editor and running game (3 autoload services)
-- **~174 tools** across 26 categories
+- **239 tools** across 39 categories
 
 ## Requirements
 
@@ -122,14 +122,14 @@ Run manually to see stderr output. The bridge writes diagnostics to stderr only 
 
 | Category | Count | Examples |
 |---|---|---|
-| project | 10 | get_project_info, search_files, set_project_setting |
+| project | 12 | get_project_info, search_files, set_project_setting |
 | scene | 10 | create_scene, open_scene, save_scene |
-| node | 17 | add_node, update_property, connect_signal |
+| node | 19 | add_node, update_property, connect_signal |
 | script | 7 | create_script, edit_script, validate_script |
-| editor | 13 | execute_editor_script, get_editor_screenshot, compare_screenshots |
+| editor | 24 | execute_editor_script, get_editor_screenshot, editor_undo |
 | input | 5 | simulate_key, simulate_mouse_click, simulate_action |
 | input_map | 2 | get_input_actions, set_input_action |
-| resource | 4 | read_resource, edit_resource, create_resource |
+| resource | 7 | read_resource, create_resource, create_gradient_resource |
 | shader | 6 | create_shader, edit_shader, assign_shader_material |
 | runtime | 19 | get_game_scene_tree, execute_game_script, move_to |
 | test | 5 | run_test_scenario, assert_node_state |
@@ -141,10 +141,24 @@ Run manually to see stderr output. The bridge writes diagnostics to stderr only 
 | batch | 7 | batch_set_property, cross_scene_set_property |
 | analysis | 6 | find_unused_resources, detect_circular_dependencies |
 | scene_3d | 6 | add_mesh_instance, setup_environment |
+| rendering_3d | 5 | create_decal, create_reflection_probe, setup_voxel_gi |
+| geometry_3d | 4 | create_csg, configure_csg, setup_multimesh |
 | particle | 5 | create_particles, apply_particle_preset |
 | physics | 6 | setup_collision, setup_physics_body |
 | navigation | 5 | bake_navigation_mesh, setup_navigation_agent |
 | audio | 6 | add_audio_bus, add_audio_player |
+| light_2d | 3 | setup_light_2d, setup_light_occluder_2d, setup_parallax |
+| skeleton | 3 | get_skeleton_info, set_bone_pose, get_bone_pose |
+| joints | 3 | create_joint, configure_joint, list_joints |
+| curve | 4 | get_curve_points, add_curve_point, set_curve_point |
+| visual_shader | 6 | create_visual_shader, add_visual_shader_node |
+| advanced_nodes | 5 | setup_animated_sprite, setup_vehicle, setup_sky |
+| translation | 3 | list_translations, read_translation, write_translation |
+| import | 3 | get_import_settings, set_import_settings, reimport_assets |
+| uid | 2 | batch_update_uids, find_missing_uids |
+| network | 2 | setup_multiplayer, setup_http_request |
+| diff | 2 | diff_scenes, diff_resources |
+| misc | 2 | editor_focus, set_time_scale |
 | export | 3 | export_project, get_export_info |
 | android | 3 | list_android_devices, deploy_to_android |
 
@@ -154,10 +168,10 @@ Set `GODOT_MCP_MODE` env var or pass `--mode` to the bridge:
 
 | Mode | Tools | Target |
 |---|---|---|
-| `full` | ~174 | All clients |
-| `3d` | ~103 | Clients with 100-tool limits needing 3D |
-| `lite` | ~84 | Windsurf, Junie |
-| `minimal` | ~35 | OpenCode, local LLMs |
+| `full` | 239 | All clients |
+| `3d` | 210 | Clients with 100-tool limits needing 3D |
+| `lite` | 124 | Windsurf, Junie |
+| `minimal` | 86 | OpenCode, local LLMs |
 
 ## Safety Model (v1.14+)
 
