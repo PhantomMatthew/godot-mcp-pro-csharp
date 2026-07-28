@@ -8,21 +8,41 @@ namespace GodotMcpPro;
 /// Bottom-panel UI for the MCP plugin. Built programmatically (no .tscn).
 /// Three sections: connection status, activity log, per-tool enable/disable.
 /// </summary>
+/// <remarks>
+/// Layout is pure Container + size flags (NO manual anchors). EditorDock is a
+/// MarginContainer and forces this panel to fill the dock; this panel is itself a
+/// MarginContainer that forces its VBox child to fill minus 8/4px padding; the VBox
+/// gives the header its natural height and the TabContainer ExpandFill takes the rest.
+/// Mixing manual anchors with a Container parent caused the VBox to collapse to its
+/// minimum size and truncate the tab content — see git history for the broken version.
+/// </remarks>
 [Tool]
-public partial class StatusPanel : Control
+public partial class StatusPanel : MarginContainer
 {
     private Label? _statusLabel;
     private Label? _portLabel;
     private RichTextLabel? _logView;
     private ItemList? _toolList;
     private GodotMcpPlugin? _plugin;
+    private VBoxContainer? _content;
+    private TabContainer? _tabs;
+    private bool _toolsPopulated;
     private const int MaxLogLines = 200;
 
     public override void _Ready()
     {
-        CustomMinimumSize = new Vector2(0, 180);
-        var vb = new VBoxContainer { AnchorsPreset = (int)Control.LayoutPreset.FullRect, OffsetLeft = 8, OffsetTop = 4, OffsetRight = -8, OffsetBottom = -4 };
-        AddChild(vb);
+        // Padding around the whole panel.
+        AddThemeConstantOverride("margin_left", 8);
+        AddThemeConstantOverride("margin_right", 8);
+        AddThemeConstantOverride("margin_top", 4);
+        AddThemeConstantOverride("margin_bottom", 4);
+
+        _content = new VBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+        };
+        AddChild(_content);
 
         // Header row
         var header = new HBoxContainer();
@@ -31,23 +51,35 @@ public partial class StatusPanel : Control
         header.AddChild(new Control { CustomMinimumSize = new Vector2(16, 0), SizeFlagsHorizontal = Control.SizeFlags.Expand });
         _portLabel = new Label { Text = "" };
         header.AddChild(_portLabel);
-        vb.AddChild(header);
+        _content.AddChild(header);
 
-        var tabs = new TabContainer { SizeFlagsVertical = Control.SizeFlags.Expand };
-        vb.AddChild(tabs);
+        _tabs = new TabContainer
+        {
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        _content.AddChild(_tabs);
 
         _logView = new RichTextLabel
         {
             BbcodeEnabled = true,
             ScrollFollowing = true,
-            SizeFlagsVertical = Control.SizeFlags.Expand,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
         };
-        tabs.AddChild(_logView);
-        tabs.SetTabTitle(0, "Activity");
+        _tabs.AddChild(_logView);
+        _tabs.SetTabTitle(0, "Activity");
 
-        _toolList = new ItemList { SizeFlagsVertical = Control.SizeFlags.Expand };
-        tabs.AddChild(_toolList);
-        tabs.SetTabTitle(1, "Tools");
+        _toolList = new ItemList
+        {
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        _tabs.AddChild(_toolList);
+        _tabs.SetTabTitle(1, "Tools");
+
+        // Subscribe once here; PopulateToolList only refills the items.
+        _toolList.ItemSelected += OnToolItemSelected;
     }
 
     public void Bind(GodotMcpPlugin plugin)
@@ -56,7 +88,17 @@ public partial class StatusPanel : Control
         var router = plugin.Router;
         if (router == null) return;
         router.ToolExecuted += OnToolExecuted;
-        PopulateToolList();
+        // The tool list is populated from _Process once the router has registered its tools:
+        // CommandRouter fills Tools in its _Ready(), which runs a frame after this Bind().
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!_toolsPopulated && _plugin?.Router != null && _plugin.Router.Tools.Count > 0)
+        {
+            _toolsPopulated = true;
+            PopulateToolList();
+        }
     }
 
     public void UpdateStatus(int port, bool running)
@@ -77,7 +119,18 @@ public partial class StatusPanel : Control
     private void OnToolExecuted(string toolName, bool isError)
     {
         var color = isError ? "red" : "green";
-        LogActivity($"<[{color}]>tools/call {toolName}");
+        LogActivity($"[color={color}]tools/call {toolName}[/color]");
+    }
+
+    private void OnToolItemSelected(long idx)
+    {
+        if (_toolList == null || _plugin?.Router == null) return;
+        var i = (int)idx;
+        if (i < 0 || i >= _plugin.Router.Tools.Count) return;
+        var tool = _plugin.Router.Tools[i];
+        var newState = !_plugin.Router.IsToolEnabled(tool.Name);
+        _plugin.Router.SetToolEnabled(tool.Name, newState);
+        _toolList.SetItemText(i, $"{(newState ? "[on]" : "[off]")} [{tool.Category}] {tool.Name}");
     }
 
     private void PopulateToolList()
@@ -90,14 +143,5 @@ public partial class StatusPanel : Control
             var enabled = _plugin.Router.IsToolEnabled(tool.Name);
             _toolList.AddItem($"{(enabled ? "[on]" : "[off]")} [{tool.Category}] {tool.Name}");
         }
-
-        _toolList.ItemSelected += idx =>
-        {
-            var i = (int)idx;
-            var tool = _plugin.Router!.Tools[i];
-            var newState = !_plugin.Router.IsToolEnabled(tool.Name);
-            _plugin.Router.SetToolEnabled(tool.Name, newState);
-            _toolList!.SetItemText(i, $"{(newState ? "[on]" : "[off]")} [{tool.Category}] {tool.Name}");
-        };
     }
 }

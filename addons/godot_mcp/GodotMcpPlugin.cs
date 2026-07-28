@@ -25,6 +25,7 @@ public partial class GodotMcpPlugin : EditorPlugin
     private McpProtocolHandler? _protocolHandler;
     private StreamableHttpServer? _httpServer;
     private StatusPanel? _statusPanel;
+    private EditorDock? _editorDock;
     private readonly List<string> _injectedAutoloads = new();
 
     /// <summary>Toggled by the set_auto_dismiss tool. When enabled, blocking editor dialogs are auto-accepted.</summary>
@@ -42,16 +43,21 @@ public partial class GodotMcpPlugin : EditorPlugin
             if (_statusPanel != null && IsInstanceValid(_statusPanel))
                 _statusPanel.CallDeferred(nameof(StatusPanel.LogActivity), msg);
         };
-        var startErr = _httpServer.Start();
-        if (startErr == Error.Ok)
-        {
-            _httpServer.RequestLogged += _ => { };
-        }
+        _httpServer.Start();
 
         InjectAutoloads();
 
         _statusPanel = new StatusPanel();
-        AddControlToBottomPanel(_statusPanel, "Godot MCP Pro CSharp");
+        // EditorDock (a MarginContainer) is the 4.7 replacement for the obsolete
+        // AddControlToBottomPanel, which failed to stretch the control to fill the dock.
+        _editorDock = new EditorDock
+        {
+            Title = "Godot MCP Pro CSharp",
+            DefaultSlot = EditorDock.DockSlot.Bottom,
+            Closable = false,
+        };
+        _editorDock.AddChild(_statusPanel);
+        AddDock(_editorDock);
         _statusPanel.Bind(this);
         _statusPanel.UpdateStatus(_httpServer.Port, _httpServer.IsRunning);
 
@@ -60,12 +66,13 @@ public partial class GodotMcpPlugin : EditorPlugin
 
     public override void _ExitTree()
     {
-        if (_statusPanel != null && IsInstanceValid(_statusPanel))
+        if (_editorDock != null && IsInstanceValid(_editorDock))
         {
-            RemoveControlFromBottomPanel(_statusPanel);
-            _statusPanel.QueueFree();
-            _statusPanel = null;
+            RemoveDock(_editorDock);
+            _editorDock.QueueFree();
+            _editorDock = null;
         }
+        _statusPanel = null;
 
         _httpServer?.Stop();
         _httpServer = null;
