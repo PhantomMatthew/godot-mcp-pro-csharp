@@ -44,7 +44,7 @@ Copy `.mcp.json.example` to your project root as `.mcp.json`, then edit the brid
 ```json
 {
   "mcpServers": {
-    "godot-mcp-pro": {
+    "godot-mcp-pro-csharp": {
       "command": "dotnet",
       "args": ["/absolute/path/to/bridge/bin/Release/net8.0/godot-mcp-bridge.dll"],
       "env": { "GODOT_MCP_HTTP_PORT": "65001" }

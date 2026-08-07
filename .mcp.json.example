@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "godot-mcp-pro": {
+    "godot-mcp-pro-csharp": {
       "command": "dotnet",
       "args": ["ADDONS_PATH/godot_mcp/bridge/bin/Release/net8.0/godot-mcp-bridge.dll"],
       "env": {

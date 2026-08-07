@@ -37,7 +37,7 @@ Create or edit `.mcp.json` in your project root:
 ```json
 {
   "mcpServers": {
-    "godot-mcp-pro": {
+    "godot-mcp-pro-csharp": {
       "command": "dotnet",
       "args": ["/absolute/path/to/godot-mcp-pro-csharp/bridge/bin/Release/net8.0/godot-mcp-bridge.dll"],
       "env": {}
