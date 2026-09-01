@@ -33,6 +33,18 @@ public sealed class McpProtocolHandler
         var msg = parsed.AsGodotDictionary();
         var hasId = msg.ContainsKey("id");
         var id = hasId ? msg["id"] : default;
+
+        // Godot's Json.ParseString parses every JSON number as double, so an
+        // integer request id (e.g. 0) would be echoed back as 0.0. Strict MCP
+        // clients (rmcp-based) reject fractional JSON-RPC ids and fail the
+        // handshake; normalize integral doubles back to long.
+        if (id.VariantType == Variant.Type.Float)
+        {
+            var d = id.AsDouble();
+            if (d == System.Math.Truncate(d) && System.Math.Abs(d) < 9007199254740992.0)
+                id = Variant.From((long)d);
+        }
+
         var method = msg.TryGetValue("method", out var m) ? m.AsString() : "";
         var @params = msg.TryGetValue("params", out var p) && p.VariantType == Variant.Type.Dictionary
             ? p.AsGodotDictionary()
