@@ -30,6 +30,8 @@ AI Assistant ──HTTP──> Godot Editor Plugin (C#)   (direct, no bridge nee
 3. Enable **Godot MCP Pro CSharp** in Project Settings → Plugins.
 4. Check the editor bottom panel — a **"MCP Pro"** tab appears showing `● connected` and the HTTP port.
 
+> **Note:** Godot's *Attach Script* and *Create Plugin* dialogs default to **GDScript** (hardcoded in the editor — there is no setting to change it). When creating new scripts or plugins for this project, manually switch the **Language** dropdown to **C#** and use a `.cs` file extension. This default does not affect loading/reloading existing plugins: the plugin's language is determined solely by the `script` path in `plugin.cfg` (here `GodotMcpPlugin.cs`).
+
 ### 2. MCP Client Setup
 
 #### Option A: stdio (Claude Code, Cline, Cursor)
