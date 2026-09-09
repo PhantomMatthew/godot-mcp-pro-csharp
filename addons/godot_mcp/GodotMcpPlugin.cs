@@ -43,9 +43,15 @@ public partial class GodotMcpPlugin : EditorPlugin
             if (_statusPanel != null && IsInstanceValid(_statusPanel))
                 _statusPanel.CallDeferred(nameof(StatusPanel.LogActivity), msg);
         };
+        _httpServer.ListenerRestarted += () =>
+        {
+            if (_statusPanel != null && IsInstanceValid(_statusPanel))
+                _statusPanel.UpdateStatus(_httpServer.Port, _httpServer.IsRunning);
+        };
         _httpServer.Start();
 
         InjectAutoloads();
+        SeedDefaultScriptLanguage();
 
         _statusPanel = new StatusPanel();
         // EditorDock (a MarginContainer) is the 4.7 replacement for the obsolete
@@ -128,6 +134,22 @@ public partial class GodotMcpPlugin : EditorPlugin
         if (_injectedAutoloads.Count > 0)
             ProjectSettings.Save();
         _injectedAutoloads.Clear();
+    }
+
+    // ── Default script language ────────────────────────────────────────────────
+    // Godot's Script Create dialog (Attach Script / New Script) defaults to the
+    // project's *last used* language, stored in per-project editor metadata
+    // (.godot/editor/project_metadata.cfg → [script_setup] last_selected_language).
+    // The engine only writes that key after a script is actually created through
+    // the dialog, so a project where that never happened falls back to GDScript
+    // on every editor start / "Reload Current Project". Seed it here so the
+    // dialog opens with C# preselected from the very first use. This only
+    // affects the initial dropdown selection — plugin loading/reloading is
+    // determined solely by the script path in plugin.cfg.
+    private static void SeedDefaultScriptLanguage()
+    {
+        EditorInterface.Singleton.GetEditorSettings()
+            .SetProjectMetadata("script_setup", "last_selected_language", "C#");
     }
 
     // ── Debugger auto-continue ────────────────────────────────────────────────

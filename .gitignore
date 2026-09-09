@@ -28,3 +28,4 @@ skills-lock.json
 
 # Local test sandbox (duplicate addon copy for runtime testing)
 scene-test/
+.mimosa/

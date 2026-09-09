@@ -40,14 +40,14 @@ public partial class ScriptCommands : BaseCommand
         new()
         {
             Name = "create_script",
-            Description = "Create a new .gd or .cs script file, optionally from a template (extends/class_name).",
+            Description = "Create a new .gd or .cs script file. When content is omitted, a template matching the file extension is generated (.gd → GDScript, .cs → C#).",
             Category = "script",
             InputSchema = Schema.Object(new System.Collections.Generic.Dictionary<string, Dictionary>
             {
-                ["path"] = Schema.Str("Path for the new script file (res://...)."),
+                ["path"] = Schema.Str("Path for the new script file (res://...). The extension (.gd/.cs) selects the template language."),
                 ["content"] = Schema.Str("Full script source. When omitted, a default template is generated."),
                 ["extends"] = Schema.Str("Base class for the generated template.", "Node"),
-                ["class_name"] = Schema.Str("Optional class_name for the generated template."),
+                ["class_name"] = Schema.Str("Optional class_name (GDScript) or class name (C#, defaults to PascalCase file name) for the generated template."),
                 ["force"] = Schema.Bool("Overwrite even if the target is open in the script editor.", false),
             }, "path"),
             Handler = p => Task.FromResult(CreateScript(p)),
@@ -234,19 +234,14 @@ public partial class ScriptCommands : BaseCommand
         if (guard.Count > 0)
             return guard;
 
-        // Generate template if no content provided
+        // Generate a language-appropriate template when no content is provided.
+        // A .cs path must never receive the GDScript template — GDScript source
+        // inside a .cs file fails the .NET build and breaks the whole solution.
         if (string.IsNullOrEmpty(content))
         {
-            var lines = new List<string>();
-            if (!string.IsNullOrEmpty(classNameStr))
-                lines.Add($"class_name {classNameStr}");
-            lines.Add($"extends {baseClass}");
-            lines.Add("");
-            lines.Add("");
-            lines.Add("func _ready() -> void:");
-            lines.Add("\tpass");
-            lines.Add("");
-            content = string.Join("\n", lines);
+            content = path.GetExtension().ToLowerInvariant() == "cs"
+                ? BuildCSharpTemplate(path, baseClass, classNameStr)
+                : BuildGdScriptTemplate(baseClass, classNameStr);
         }
 
         // Ensure directory exists
@@ -272,6 +267,61 @@ public partial class ScriptCommands : BaseCommand
         }
 
         return Success(new Dictionary { ["path"] = path, ["created"] = true });
+    }
+
+    /// <summary>GDScript template: class_name (optional) + extends + empty _ready().</summary>
+    private static string BuildGdScriptTemplate(string baseClass, string className)
+    {
+        var lines = new List<string>();
+        if (!string.IsNullOrEmpty(className))
+            lines.Add($"class_name {className}");
+        lines.Add($"extends {baseClass}");
+        lines.Add("");
+        lines.Add("");
+        lines.Add("func _ready() -> void:");
+        lines.Add("\tpass");
+        lines.Add("");
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// C# template matching the extends/class_name params: the class name falls
+    /// back to a PascalCase type name derived from the file name.
+    /// </summary>
+    private static string BuildCSharpTemplate(string path, string baseClass, string className)
+    {
+        var name = !string.IsNullOrEmpty(className)
+            ? className
+            : PascalCaseFromFileName(path);
+        return
+            "using Godot;\n" +
+            "\n" +
+            $"public partial class {name} : {baseClass}\n" +
+            "{\n" +
+            "\tpublic override void _Ready()\n" +
+            "\t{\n" +
+            "\t}\n" +
+            "}\n";
+    }
+
+    /// <summary>Derive a valid C# type name from a script file name ("my_node.cs" → "MyNode").</summary>
+    private static string PascalCaseFromFileName(string path)
+    {
+        var parts = path.GetFile().GetBaseName()
+            .Split(new[] { '_', '-', ' ', '.' }, StringSplitOptions.RemoveEmptyEntries);
+        var sb = new System.Text.StringBuilder();
+        foreach (var part in parts)
+        {
+            sb.Append(char.ToUpperInvariant(part[0]));
+            if (part.Length > 1)
+                sb.Append(part[1..]);
+        }
+        var result = sb.ToString();
+        if (result.Length == 0)
+            return "NewScript";
+        if (char.IsDigit(result[0]))
+            result = "_" + result;
+        return result;
     }
 
     // ── edit_script ──────────────────────────────────────────────────────────
@@ -482,6 +532,20 @@ public partial class ScriptCommands : BaseCommand
             if (file == null)
                 return ErrorInternal($"Cannot read script: {Godot.FileAccess.GetOpenError()}");
             sourceCode = file.GetAsText();
+        }
+
+        // In-editor compile checking is GDScript-only. Feeding C# source to the
+        // GDScript compiler would always report a false failure; C# scripts are
+        // validated by the .NET toolchain instead.
+        if (path.GetExtension().ToLowerInvariant() == "cs")
+        {
+            return Success(new Dictionary
+            {
+                ["path"] = path,
+                ["validated"] = false,
+                ["message"] = "In-editor compile check is only available for .gd scripts. " +
+                              "C# scripts are compiled by the .NET toolchain — use get_editor_errors or run 'dotnet build'.",
+            });
         }
 
         var script = new GDScript { SourceCode = sourceCode };
